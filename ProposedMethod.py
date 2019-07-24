@@ -9,6 +9,11 @@ class Cluster:
         self.__fc = fc # fc is feature in df that represent class
         self.__v = self.__center()
         self.__r = self.__radias()
+        print('')
+
+    @property
+    def fc(self):
+        return self.__fc
 
     def size(self):
         try:
@@ -26,9 +31,14 @@ class Cluster:
     def get_feature(self):
         return self.__df.columns.tolist()
 
-    def number_of_class(self):
-        data = self.__df.groupby(self.__fc).nunique()
-        return (data.shape)[0]
+    def class_list(self):
+        data_set = self.__df
+        cls = self.__fc
+        data = data_set.groupby(cls).indices.keys()
+        cls_num = len(data)
+
+        return list(data)
+
 
     def __center(self):
         row , col = self.size()
@@ -68,8 +78,15 @@ class Cluster:
 
         return dist - (ri + rj)
 
-    def p(self):
-        print(self.number_of_class())
+    def get_class_data(self, cls):
+        df = self.__df
+        fc = self.__fc
+        data = []
+        for c in cls:
+            data.append(df[df[fc] == c])
+        return pd.concat(data)
+    def p(self, c):
+        print(self.get_class_data(c))
 
 
 class LW_index:
@@ -78,16 +95,95 @@ class LW_index:
         self.__ci = c1
         self.__cj = c2
 
+
     def lw(self):
-        pass
+        ci = self.__ci
+        cj = self.__cj
+
+
+        ci_class = ci.class_list()
+        cj_class = cj.class_list()
+
+        sum =0
+
+        for clsi in ci_class:
+            cj_cls = list(cj_class)
+            cj_cls.remove(clsi)
+
+            new_ci = Cluster(df=ci.get_class_data(clsi), fc=ci.fc)
+            fd = []
+            for clsj in cj_cls:
+                new_cj = Cluster(df=cj.get_class_data(clsj), fc=cj.fc)
+                fd.append(new_ci.freedom_degree(new_cj))
+                del new_cj
+            sum += min(fd)
+            del fd
+        return sum
+
+
+def get_candidate_feature(featuer_list):
+    if len(featuer_list) >0:
+        f = featuer_list[0]
+        featuer_list.remove(f)
+        return f, featuer_list
+    else:
+        return None, featuer_list
+
+def remain_featuer(orig_f, sub_f):
+    new_f =[]
+    for f in orig_f:
+        if f not in sub_f:
+            new_f.append(f)
+    return new_f
 
 
 def main():
     # read data
-    loder = LoadData('/home/jahanbakhsh/PycharmProjects/ML/Featuer_Selection/dataset/ionosphere.csv')
+    loder = LoadData('/home/jahanbakhsh/PycharmProjects/Featuer_Selection/dataset/ionosphere.csv')
     data_set = loder.get_data()
 
-    c = Cluster(df=data_set, fc='class')
-    c.p()
+    cls_featuer = 'class'
+    clu = Cluster(df=data_set, fc=cls_featuer)
 
-main()
+    original_feature = clu.get_feature()
+    orig_f = list(original_feature)
+    original_feature.remove(cls_featuer)
+    selected_feature =[]
+    ft =[]
+    lw_list =[]
+    lw_scor =[]
+    t =0
+    while ([] != original_feature) or t <100:
+        temp_feature = list(original_feature)
+
+        while []!=temp_feature:
+            fc , temp_feature = get_candidate_feature(temp_feature)
+            candidate_list = list(selected_feature)
+            candidate_list.append(fc)
+
+            cj = remain_featuer(orig_f,candidate_list)
+            cj.append(cls_featuer)
+
+            ci = list(candidate_list)
+            ci.append(cls_featuer)
+
+            cj = data_set[cj]
+            ci = data_set[ci]
+
+            cj=Cluster(cj, cls_featuer)
+            ci=Cluster(ci, cls_featuer)
+
+            lw = LW_index(ci, cj)
+            lw_scor.append(lw.lw())
+            lw_list.append(candidate_list)
+
+        index = lw_scor.index(max(lw_scor))
+        selected_feature.extend(lw_list[index])
+
+        for f in lw_list[index]:
+            original_feature.remove(f)
+        t +=1
+
+
+if __name__ == '__main__':
+    main()
