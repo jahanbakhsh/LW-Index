@@ -1,125 +1,15 @@
 from DataLoder import LoadData
-import numpy as np
-import pandas as pd
-
-class Cluster:
-
-    def __init__(self, df, fc):
-        self.__df = df # df is DataFrame
-        self.__fc = fc # fc is feature in df that represent class
-        self.__v = self.__center()
-        self.__r = self.__radias()
-        print('')
-
-    @property
-    def fc(self):
-        return self.__fc
-
-    def size(self):
-        try:
-            shape = self.__df.shape
-            return shape[0], shape[1]
-        except:
-            return 0, 0
-
-    def get_data(self):
-        return self.__df.values
-
-    def sub_data(self,feature_list):
-        return self.__df[feature_list].values
-
-    def get_feature(self):
-        return self.__df.columns.tolist()
-
-    def class_list(self):
-        data_set = self.__df
-        cls = self.__fc
-        data = data_set.groupby(cls).indices.keys()
-        cls_num = len(data)
-
-        return list(data)
+from LW_index import DataSet, Cluster, LW_index
+import os
+from Experiments import Expriment
+from pandas.api.types import is_string_dtype
 
 
-    def __center(self):
-        row , col = self.size()
 
-        feature_list = self.get_feature()
-        feature_list.remove(self.__fc)
-        c = 1/row
-        return c * sum(self.sub_data(feature_list))
-
-    def __radias(self):
-        row, col = self.size()
-
-        feature_list = self.get_feature()
-        feature_list.remove(self.__fc)
-
-        if row <=0:
-            return 0
-        c = 1 / row
-
-        v_star = self.__center()
-        dist = (v_star - self.sub_data(feature_list)) ** 2
-        dist = np.sum(dist)
-        dist = np.sqrt(dist)
-
-        return c * dist
-
-    def freedom_degree(self, cluster):
-        ci = self.__center()
-        cj = cluster.__center()
-
-        ri = self.__radias()
-        rj = cluster.__radias()
-
-        dist = (ci - cj) ** 2
-        dist = np.sum(dist)
-        dist = np.sqrt(dist)
-
-        return dist - (ri + rj)
-
-    def get_class_data(self, cls):
-        df = self.__df
-        fc = self.__fc
-        data = []
-        for c in cls:
-            data.append(df[df[fc] == c])
-        return pd.concat(data)
-    def p(self, c):
-        print(self.get_class_data(c))
-
-
-class LW_index:
-
-    def __init__(self, c1, c2):
-        self.__ci = c1
-        self.__cj = c2
-
-
-    def lw(self):
-        ci = self.__ci
-        cj = self.__cj
-
-
-        ci_class = ci.class_list()
-        cj_class = cj.class_list()
-
-        sum =0
-
-        for clsi in ci_class:
-            cj_cls = list(cj_class)
-            cj_cls.remove(clsi)
-
-            new_ci = Cluster(df=ci.get_class_data(clsi), fc=ci.fc)
-            fd = []
-            for clsj in cj_cls:
-                new_cj = Cluster(df=cj.get_class_data(clsj), fc=cj.fc)
-                fd.append(new_ci.freedom_degree(new_cj))
-                del new_cj
-            sum += min(fd)
-            del fd
-        return sum
-
+PATH_BASE= os.path.dirname(__file__)
+PATH_RESULT = os.path.join(PATH_BASE, 'result')
+CLS_METHOD = 'svm'
+# CLS_METHOD = 'cbc'
 
 def get_candidate_feature(featuer_list):
     if len(featuer_list) >0:
@@ -137,23 +27,20 @@ def remain_featuer(orig_f, sub_f):
     return new_f
 
 
-def main():
-    # read data
-    loder = LoadData('/home/jahanbakhsh/PycharmProjects/Featuer_Selection/dataset/ionosphere.csv')
-    data_set = loder.get_data()
+def main(data_set, cls_featuer, step, threshold):
 
-    cls_featuer = 'class'
-    clu = Cluster(df=data_set, fc=cls_featuer)
+    experiment_feature = {}
 
-    original_feature = clu.get_feature()
+    original_feature = data_set.feature
     orig_f = list(original_feature)
     original_feature.remove(cls_featuer)
+    orig_f.remove(cls_featuer)
+
     selected_feature =[]
-    ft =[]
     lw_list =[]
     lw_scor =[]
     t =0
-    while ([] != original_feature) or t <100:
+    while ([] != original_feature) and t < threshold:
         temp_feature = list(original_feature)
 
         while []!=temp_feature:
@@ -161,14 +48,14 @@ def main():
             candidate_list = list(selected_feature)
             candidate_list.append(fc)
 
-            cj = remain_featuer(orig_f,candidate_list)
-            cj.append(cls_featuer)
-
             ci = list(candidate_list)
             ci.append(cls_featuer)
 
-            cj = data_set[cj]
-            ci = data_set[ci]
+            cj = list(candidate_list)
+            cj.append(cls_featuer)
+
+            cj = data_set.get_data(cj)
+            ci = data_set.get_data(ci)
 
             cj=Cluster(cj, cls_featuer)
             ci=Cluster(ci, cls_featuer)
@@ -178,12 +65,52 @@ def main():
             lw_list.append(candidate_list)
 
         index = lw_scor.index(max(lw_scor))
-        selected_feature.extend(lw_list[index])
+        selected_feature=list(lw_list[index])
+
 
         for f in lw_list[index]:
-            original_feature.remove(f)
-        t +=1
+            if f in original_feature:
+                original_feature.remove(f)
+                orig_f.remove(f)
 
+        t +=1
+        # if(t % step ==0):
+        experiment_feature[t]= list(lw_list[index])
+
+        lw_list = list([])
+        lw_scor = list([])
+
+    return experiment_feature
 
 if __name__ == '__main__':
-    main()
+
+
+    DATA_SET = ['lungcancer',  'ionosphere','sonar','soybean']
+    STEP = 5
+    for data_sent_name in DATA_SET:
+        PATH_DATA = os.path.join(PATH_BASE,'dataset/{}.csv'.format(data_sent_name))
+        loader = LoadData(PATH_DATA)
+        cls_featuer = 'class'
+
+        data_set = loader.get_data()
+        if is_string_dtype(data_set[cls_featuer]):
+            class_value = data_set[cls_featuer].unique()
+            class_value = list(class_value)
+
+            vals = list(range(0, len(class_value)))
+            dic = dict(zip(class_value, vals))
+            data_set[cls_featuer] = data_set[cls_featuer].map(dic)
+
+        data_set = DataSet(data_set, cls_featuer)
+
+        THRESHOLD = len(data_set.feature)
+
+        experiment_feature = main(data_set=data_set, cls_featuer=cls_featuer,
+                                  step=5, threshold=THRESHOLD)
+
+
+        epr = Expriment(data_set=data_set,
+                        experiment_feature=experiment_feature,
+                        cls_feature=cls_featuer, expriment_name=data_sent_name,
+                        result_path = PATH_RESULT,cls_method=CLS_METHOD)
+        epr.run()

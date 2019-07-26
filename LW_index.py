@@ -1,122 +1,146 @@
-import pandas as pd
 import numpy as np
-from scipy.spatial.distance import cdist
-from DataLoder import LoadData
-from random import choice
-from sklearn.neighbors.nearest_centroid import NearestCentroid
-
+import pandas as pd
 
 class DataSet:
-    def __init__(self, da):
-        self._data = da
+    def __init__(self, data_frame, class_column):
+        self.__data_frame = data_frame
+        self.__class_column =class_column
+
+    @property
+    def data_set(self):
+        return self.__data_frame
+
+    @property
+    def data(self):
+        return self.__data_frame.values
+
+    def get_data(self,features):
+        return self.__data_frame[features]
+    @property
+    def feature(self):
+        return self.__data_frame.columns.tolist()
+
+    @property
+    def class_column(self):
+        return self.__class_column
+
+    def sample(self,frac,random_state):
+        return self.__data_frame.sample(frac=frac,random_state=random_state )
+
+    def drop(self,index):
+        return self.__data_frame.drop(index=index)
+
+class Cluster:
+
+    def __init__(self, df, fc):
+        self.__df = df # df is DataFrame
+        self.__fc = fc # fc is feature in df that represent class
+        self.__v = self.__center()
+        self.__r = self.__radias()
+
+    @property
+    def fc(self):
+        return self.__fc
+
+    def size(self):
+        try:
+            shape = self.__df.shape
+            return shape[0], shape[1]
+        except:
+            return 0, 0
 
     def get_data(self):
-        return self._data.values
-
-    def get_feature(self):
-        return self._data.columns.tolist()
+        return self.__df.values
 
     def sub_data(self,feature_list):
-        return self._data[feature_list]
+        return self.__df[feature_list].values
+
+    def get_feature(self):
+        return self.__df.columns.tolist()
+
+    def class_list(self):
+        data_set = self.__df
+        cls = self.__fc
+        data = data_set.groupby(cls).indices.keys()
+        cls_num = len(data)
+
+        return list(data)
 
 
-    def get_feature_value(self, feature_list):
-        return self._data[feature_list].values
+    def __center(self):
+        row , col = self.size()
 
-    def sum(self,feature_list):
-        return sum(self.get_feature_value(feature_list))
+        feature_list = self.get_feature()
+        feature_list.remove(self.__fc)
+        c = 1/row
+        return c * sum(self.sub_data(feature_list))
 
-    def get_class_data(self, class_label, class_featuer):
-        return self._data[self._data[class_label ]== class_featuer]
+    def __radias(self):
+        row, col = self.size()
 
-class LW_index:
+        feature_list = self.get_feature()
+        feature_list.remove(self.__fc)
 
-    def __init__(self, ds):
-        self._data_set =ds
-
-    @staticmethod
-    def v_star(data):
-        # self._data_set.get_feature_value(feature_list)
-        k = len(data)
-        if k <=0:
+        if row <=0:
             return 0
-        else:
-            c = 1/k
-            return c *sum(data)
+        c = 1 / row
 
-    @staticmethod
-    def r_star( data):
-        # self._data_set.get_feature_value(feature_list)
-        k = len(data)
-        if k <=0:
-            return 0
-        else:
-            v_star = LW_index.v_star(data)
-            c = 1/k
-            dist = (v_star - data)**2
-            dist = np.sum(dist)
-            dist = np.sqrt(dist)
-
-            return c * dist
-
-    def freedom_degree(self,df_fi, df_fj):
-        fi = DataSet(df_fi).get_data()
-        fj = DataSet(df_fj).get_data()
-
-        v_fi = self.v_star(fi)
-        v_fj = self.v_star(fj)
-        r_fi = self.r_star(fi)
-        r_fj = self.r_star(fj)
-
-        dist = (v_fi-v_fj)**2
+        v_star = self.__center()
+        dist = (v_star - self.sub_data(feature_list)) ** 2
         dist = np.sum(dist)
         dist = np.sqrt(dist)
 
-        return dist - (r_fi + r_fj)
+        return c * dist
 
-    def fc(self, fi, fj, class_list, class_label):
-        LW=[]
-        M = len(class_list)
+    def freedom_degree(self, cluster):
+        ci = self.__center()
+        cj = cluster.__center()
 
-        for cls in class_list:
-            dfi = DataSet(fi)
-            dfi = dfi.get_class_data(class_label, cls)
-            dfi=dfi.drop(columns=[class_label])
+        ri = self.__radias()
+        rj = cluster.__radias()
 
-            dfj = DataSet(fj)
-            dfj = dfj.get_class_data(class_label,cls)
-            dfj=dfj.drop(columns=[class_label])
+        dist = (ci - cj) ** 2
+        dist = np.sum(dist)
+        dist = np.sqrt(dist)
 
-            LW.append(self.freedom_degree(dfi, dfj))
-        return 1/M * min(LW)
+        return dist - (ri + rj)
 
-    def lw_index(self, fi, fj, featuer_set, class_label):
-        fo = featuer_set
-        fs = []
+    def get_class_data(self, cls):
+        df = self.__df
+        fc = self.__fc
+        data = []
+        for c in cls:
+            data.append(df[df[fc] == c])
+        return pd.concat(data)
 
-        while len(fo)==0:
-            ft = list(fo)
-            while len(ft)==0:
-                fd = [ft[0]]
-                fc =fs+fd
-                ft.remove(fd[0])
 
-                temp = list(fo)
-                for k in fc:
-                    temp.remove(k)
-                lw = self.fc()
+class LW_index:
 
-def main():
-    # read data
-    loder = LoadData('./dataset/ionosphere.csv')
-    data_set = loder.get_data()
+    def __init__(self, c1, c2):
+        self.__ci = c1
+        self.__cj = c2
 
-    d1 = data_set.sample(n=35)
-    d2 = data_set.sample(n=55)
 
-    data_set = DataSet(data_set)
-    lw = LW_index(data_set)
-    lw =lw.fc(d1, d2, ['g', 'b'], 'class')
-    print(lw)
+    def lw(self):
+        ci = self.__ci
+        cj = self.__cj
 
-main()
+
+        ci_class = ci.class_list()
+        cj_class = cj.class_list()
+
+        sum =0
+
+        for clsi in ci_class:
+            cj_cls = list(cj_class)
+            cj_cls.remove(clsi)
+
+            new_ci = Cluster(df=ci.get_class_data([clsi]), fc=ci.fc)
+            fd = []
+            for clsj in cj_cls:
+                new_cj = Cluster(df=cj.get_class_data([clsj]), fc=cj.fc)
+                fd.append(new_ci.freedom_degree(new_cj))
+                del new_cj
+            sum += min(fd)
+            del fd
+        return sum
