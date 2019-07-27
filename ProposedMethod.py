@@ -27,7 +27,7 @@ def remain_featuer(orig_f, sub_f):
     return new_f
 
 
-def main(data_set, cls_featuer, step, threshold):
+def main(data_set, cls_featuer, threshold):
 
     experiment_feature = {}
 
@@ -74,7 +74,6 @@ def main(data_set, cls_featuer, step, threshold):
                 orig_f.remove(f)
 
         t +=1
-        # if(t % step ==0):
         experiment_feature[t]= list(lw_list[index])
 
         lw_list = list([])
@@ -86,7 +85,6 @@ if __name__ == '__main__':
 
 
     DATA_SET = ['lungcancer',  'ionosphere','sonar','soybean']
-    STEP = 5
     for data_sent_name in DATA_SET:
         PATH_DATA = os.path.join(PATH_BASE,'dataset/{}.csv'.format(data_sent_name))
         loader = LoadData(PATH_DATA)
@@ -106,7 +104,7 @@ if __name__ == '__main__':
         THRESHOLD = len(data_set.feature)
 
         experiment_feature = main(data_set=data_set, cls_featuer=cls_featuer,
-                                  step=5, threshold=THRESHOLD)
+                                 threshold=THRESHOLD)
 
 
         epr = Expriment(data_set=data_set,
