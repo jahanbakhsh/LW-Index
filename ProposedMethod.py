@@ -8,7 +8,10 @@ from pandas.api.types import is_string_dtype
 
 PATH_BASE= os.path.dirname(__file__)
 PATH_RESULT = os.path.join(PATH_BASE, 'result')
-CLS_METHOD = 'svm'
+
+DATA_SET = ['lungcancer',  'ionosphere','sonar','soybean']
+CLS_METHOD =['svm', 'cbc']
+# CLS_METHOD = 'svm'
 # CLS_METHOD = 'cbc'
 
 def get_candidate_feature(featuer_list):
@@ -84,31 +87,42 @@ def main(data_set, cls_featuer, threshold):
 if __name__ == '__main__':
 
 
-    DATA_SET = ['lungcancer',  'ionosphere','sonar','soybean']
-    for data_sent_name in DATA_SET:
-        PATH_DATA = os.path.join(PATH_BASE,'dataset/{}.csv'.format(data_sent_name))
-        loader = LoadData(PATH_DATA)
-        cls_featuer = 'class'
+    for method in CLS_METHOD:
+        for data_sent_name in DATA_SET:
+            PATH_DATA = os.path.join(PATH_BASE,'dataset/{}.csv'.format(data_sent_name))
 
-        data_set = loader.get_data()
-        if is_string_dtype(data_set[cls_featuer]):
-            class_value = data_set[cls_featuer].unique()
-            class_value = list(class_value)
+            print('start load {} dataset ...'.format(data_sent_name))
 
-            vals = list(range(0, len(class_value)))
-            dic = dict(zip(class_value, vals))
-            data_set[cls_featuer] = data_set[cls_featuer].map(dic)
+            loader = LoadData(PATH_DATA)
+            cls_featuer = 'class'
 
-        data_set = DataSet(data_set, cls_featuer)
+            print('loading of {} dataset complated'.format(data_sent_name))
 
-        THRESHOLD = len(data_set.feature)
+            print('start to cleaning {} dataset ... '.format(data_sent_name))
+            data_set = loader.get_data()
+            if is_string_dtype(data_set[cls_featuer]):
+                class_value = data_set[cls_featuer].unique()
+                class_value = list(class_value)
 
-        experiment_feature = main(data_set=data_set, cls_featuer=cls_featuer,
-                                 threshold=THRESHOLD)
+                vals = list(range(0, len(class_value)))
+                dic = dict(zip(class_value, vals))
+                data_set[cls_featuer] = data_set[cls_featuer].map(dic)
 
+            data_set = DataSet(data_set, cls_featuer)
+            print('cleaning {} dataset complated'.format(data_sent_name))
+            THRESHOLD = len(data_set.feature)
 
-        epr = Expriment(data_set=data_set,
-                        experiment_feature=experiment_feature,
-                        cls_feature=cls_featuer, expriment_name=data_sent_name,
-                        result_path = PATH_RESULT,cls_method=CLS_METHOD)
-        epr.run()
+            print('start to featuer subset selection in {} dataset ...'.format(data_sent_name))
+            experiment_feature = main(data_set=data_set, cls_featuer=cls_featuer,
+                                     threshold=THRESHOLD)
+
+            print(experiment_feature)
+
+            print('all subset extracted')
+            print('start to compute resule of {} method on {} dataset'.format(method,data_sent_name))
+            epr = Expriment(data_set=data_set,
+                            experiment_feature=experiment_feature,
+                            cls_feature=cls_featuer, expriment_name=data_sent_name,
+                            result_path = PATH_RESULT,cls_method=method)
+            epr.run()
+            print('result saved')

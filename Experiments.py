@@ -64,9 +64,9 @@ class Expriment:
 
     def __figure_result(self):
         if len(self.result)>0:
-            plt.plot(self.result.keys(), self.result.values())
-            plt.ylabel('accuracy')
-            plt.xlabel('number of feature\n {} Dataset'.format(self.__expriment_name))
+            plt.plot(list(self.result.keys()), list(self.result.values()))
+            plt.ylabel('Accuracy')
+            plt.xlabel('Number of feature\n {} Dataset'.format(self.__expriment_name))
             plt.savefig('{}/{}_{}.png'.format(self.__result_path,self.__expriment_name,self.__cls_method), bbox_inches='tight')
             plt.clf()
 
